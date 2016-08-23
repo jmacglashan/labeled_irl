@@ -191,7 +191,7 @@ public class LabeledIRL {
     protected FunctionGradient grad_logDi(Episode e, double l){
 
         //first get marginalized episodes
-        List<Episode> X = LabelAssignments.fullEnumerateEpisodeReward(e);
+        List<Episode> X = LabelAssignments.partialEnumerateEpisodeReward(e);
         List<Double> Gxi = this.Gxi(X, l);
         int mi = arg_max(Gxi);
         List<Double> Fxi = this.Fxi(Gxi, mi);
@@ -315,7 +315,7 @@ public class LabeledIRL {
     protected double logDi(Episode e, double l){
 
         //first get marginalized episodes
-        List<Episode> X = LabelAssignments.fullEnumerateEpisodeReward(e);
+        List<Episode> X = LabelAssignments.partialEnumerateEpisodeReward(e);
         List<Double> Gxi = this.Gxi(X, l);
         int mi = arg_max(Gxi);
         List<Double> Fxi = this.Fxi(Gxi, mi);
