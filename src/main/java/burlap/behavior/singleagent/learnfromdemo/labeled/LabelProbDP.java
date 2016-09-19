@@ -17,15 +17,19 @@ public class LabelProbDP {
 
     protected boolean computedTable = false;
 
-    public LabelProbDP(double knownSum, int numUnknown, double [] transitionProbs, double sigmoidPhi){
+    public LabelProbDP(double knownSum, double [] transitionProbs, double sigmoidPhi){
         this.knownSum = knownSum;
-        this.numUnknown = numUnknown;
+        this.numUnknown = transitionProbs.length;
         range = numUnknown*2 + 1;
         this.transitionProbs = transitionProbs.clone();
         this.phi = sigmoidPhi;
     }
 
     public double marginal(double l){
+
+        if(numUnknown == 0){
+            return this.probL(l , knownSum);
+        }
 
         if(!computedTable){
             this.computeDPTable();
@@ -44,6 +48,11 @@ public class LabelProbDP {
     }
 
     public double logMarginal(double l){
+
+        if(numUnknown == 0){
+            return Math.log(this.probL(l , knownSum));
+        }
+
         if(!computedTable){
             this.computeDPTable();
         }
@@ -64,6 +73,7 @@ public class LabelProbDP {
     }
 
     public void computeDPTable(){
+
         dpTable =  new double[range][numUnknown]; //all zeros to start
 
         //first fill in base case last column
@@ -173,7 +183,7 @@ public class LabelProbDP {
 
     public static void main(String[] args) {
 
-        LabelProbDP dp = new LabelProbDP(0, 2, new double[]{0.5, 0.75}, 1.);
+        LabelProbDP dp = new LabelProbDP(0, new double[]{0.5, 0.75}, 1.);
         double marginal = dp.marginal(1.);
         double logMarginal = dp.logMarginal(1.);
         System.out.println(marginal);
