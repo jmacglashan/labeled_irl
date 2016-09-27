@@ -17,6 +17,7 @@ import burlap.behavior.singleagent.learnfromdemo.mlirl.commonrfs.LinearStateDiff
 import burlap.behavior.singleagent.learnfromdemo.mlirl.differentiableplanners.DifferentiableSparseSampling;
 import burlap.behavior.singleagent.learnfromdemo.mlirl.differentiableplanners.DifferentiableVI;
 import burlap.behavior.singleagent.learnfromdemo.mlirl.differentiableplanners.dpoperator.SubDifferentiableMaxOperator;
+import burlap.behavior.singleagent.learnfromdemo.mlirl.support.DifferentiableRF;
 import burlap.behavior.singleagent.planning.stochastic.valueiteration.ValueIteration;
 import burlap.behavior.valuefunction.QProvider;
 import burlap.debugtools.RandomFactory;
@@ -138,12 +139,12 @@ public class LabeledIRLExp {
 		MLIRLRequest request = null;
 
         //assign final labels for the demonstrations for labeled IRL approaches.
-        List<Double> labels = Arrays.asList(1., 1.);
+        List<Double> labels = Arrays.asList(1., -1.);
 
         //labeled IRL parameters
         double learningRate = 0.05;
         int gaSteps = 20;
-        int emSteps = 10;
+        int emSteps = 1;
         double logLikelihoodChange = 0.1;
 
 		if(mode == 0){
@@ -171,6 +172,7 @@ public class LabeledIRLExp {
 			request.setBoltzmannBeta(beta);
 
 			EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, learningRate, gaSteps, emSteps);
+            irl.setNumSampleScalar(50);
 			irl.learn();
 		}
 		else if(mode == 3){
@@ -221,6 +223,97 @@ public class LabeledIRLExp {
 
 
 	}
+
+	public void evaluateRewardParams(String pathToEpisodes){
+
+        //create reward function features to use
+        LocationFeatures features = new LocationFeatures(this.domain, 5);
+
+        //create a reward function that is linear with respect to those features and has small random
+        //parameter values to start
+        LinearStateDifferentiableRF rf = new LinearStateDifferentiableRF(features, 5);
+
+        //load our saved demonstrations from disk
+        List<Episode> episodes = Episode.readEpisodes(pathToEpisodes);
+
+        //THIS IS CRITICAL BE AWARE
+        assignRewards(episodes, 0.);
+
+        double beta = 1;
+        //DifferentiableVI dplanner = new DifferentiableVI(this.domain, rf, 0.99, beta, new SimpleHashableStateFactory(), 0., 100000);
+        DifferentiableSparseSampling dplanner = new DifferentiableSparseSampling(this.domain, rf, 0.95, new SimpleHashableStateFactory(), 8, -1, beta);
+        dplanner.setOperator(new SubDifferentiableMaxOperator());
+
+        dplanner.toggleDebugPrinting(false);
+
+        MLIRLRequest request = null;
+
+        //assign final labels for the demonstrations for labeled IRL approaches.
+        List<Double> labels = Arrays.asList(1., -1.);
+
+        //labeled IRL parameters
+        double learningRate = 0.05;
+        int gaSteps = 20;
+        int emSteps = 10;
+
+        System.out.println("EM Labeled IRL full marginalization!");
+        request = new LabeledIRLRequest(domain, dplanner, episodes, rf, labels);
+        request.setBoltzmannBeta(beta);
+
+        EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, learningRate, gaSteps, emSteps);
+
+        System.out.println("Testing for labels: " + Arrays.toString(labels.toArray()));
+        System.out.println("---");
+
+        //now test params
+        testRewardParameters(irl, 0, 0, 0, 0, 0);
+        testRewardParameters(irl, -1, -1, 1, 1, 1);
+        testRewardParameters(irl, -1, 1, -1, -1, -1);
+        testRewardParameters(irl, 1, 1, -1, -1, -1);
+
+
+
+        if(false){
+            //get all states in the domain so we can visualize the learned reward function for them
+            List<State> allStates = StateReachability.getReachableStates(basicState(), this.domain, new SimpleHashableStateFactory());
+
+            //get a standard grid world value function visualizer, but give it StateRewardFunctionValue which returns the
+            //reward value received upon reaching each state which will thereby let us render the reward function that is
+            //learned rather than the value function for it.
+
+            ((FactoredModel)request.getDomain().getModel()).setRf(rf);
+
+            //request.getPlanner().resetSolver();
+
+            //ValueIteration vi = new ValueIteration(request.getDomain(), 0.99, new SimpleHashableStateFactory(), 0.01, 100000);
+            //vi.planFromState(episodes.get(0).state(0));
+            ValueFunctionVisualizerGUI gui = GridWorldDomain.getGridWorldValueFunctionVisualization(
+                    allStates,
+                    5,
+                    5,
+                    new RewardValueProjection(rf),
+                    new GreedyQPolicy((QProvider) request.getPlanner())
+                    //new GreedyQPolicy(vi)
+            );
+
+            gui.initGUI();
+        }
+
+
+    }
+
+	public void testRewardParameters(EMLabeledIRL irl, double...params){
+
+        DifferentiableRF rf = irl.getRequest().getRf();
+        for(int i = 0; i < params.length; i++){
+            rf.setParameter(i, params[i]);
+        }
+
+        irl.updateModelForCurrentReward();
+        double loglikelihood = irl.logLikelihood();
+        System.out.println(loglikelihood + " " + Arrays.toString(params));
+
+    }
 
 
 	/**
@@ -354,8 +447,8 @@ public class LabeledIRLExp {
 
 		//ex.launchExplorer(); //choose this to record demonstrations
 		//ex.launchSavedEpisodeSequenceVis("irl_demos2"); //choose this review the demonstrations that you've recorded
-		ex.runIRL("irl_demos2", 4); //choose this to run MLIRL on the demonstrations and visualize the learned reward function and policy
-
+		//ex.runIRL("irl_demos2", 2); //choose this to run MLIRL on the demonstrations and visualize the learned reward function and policy
+        ex.evaluateRewardParams("irl_demos2");
 
 	}
 

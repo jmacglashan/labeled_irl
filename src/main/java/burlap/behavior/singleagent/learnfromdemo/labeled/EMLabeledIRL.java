@@ -60,13 +60,27 @@ public class EMLabeledIRL {
 
     }
 
+    public LabeledIRLRequest getRequest(){
+        return this.request;
+    }
+
+    public void setNumSampleScalar(int nsamples){
+        this.numSampleScalar = nsamples;
+    }
+
+    public void updateModelForCurrentReward(){
+        DifferentiableRF rf = this.request.getRf();
+        this.request.getPlanner().resetSolver();
+        this.request.getPlanner().setModel(new CustomRewardModel(request.getDomain().getModel(), rf));
+        //WARNING: Call planFromState from some trajectory state if you are going to use VI instead of sparse sampling
+    }
+
 
     public void learn(){
 
         DifferentiableRF rf = this.request.getRf();
 
-        this.request.getPlanner().resetSolver();
-        this.request.getPlanner().setModel(new CustomRewardModel(request.getDomain().getModel(), rf));
+        this.updateModelForCurrentReward();
 
         System.out.println("Starting log likelihood: " + this.logLikelihood());
 
@@ -128,9 +142,7 @@ public class EMLabeledIRL {
 
                 //update planner for new reward parameters
                 //reset valueFunction
-                this.request.getPlanner().resetSolver();
-                this.request.getPlanner().setModel(new CustomRewardModel(request.getDomain().getModel(), rf));
-                //WARNING: Call planFromState if you are going to use VI instead of sparse sampling
+                this.updateModelForCurrentReward();
 
                 k++;
 
@@ -142,7 +154,7 @@ public class EMLabeledIRL {
 
     }
 
-    protected double logLikelihood(){
+    public double logLikelihood(){
 
         Policy p = this.curPolicy();
         double sum = 0.;
@@ -289,7 +301,7 @@ public class EMLabeledIRL {
         for(int t = 1; t < e.numTimeSteps(); t++){
             double x = e.reward(t);
             if(x == 0.){
-                double px = probFeedback(e.state(t-1), e.action(t-1), x, p);
+                double px = probFeedback(e.state(t-1), e.action(t-1), 1., p); //transition matrix always defined for probability of positive feedback
                 transitionProbsList.add(px);
             }
             else{
