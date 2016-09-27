@@ -19,6 +19,12 @@ import java.util.*;
 public class LabelAssignments {
 
 
+    /**
+     * Generates episodes for all possible reward assignments for *every* step of the
+     * episode
+     * @param e the original episode
+     * @return a list of episodes
+     */
 	public static List<Episode> fullEnumerateEpisodeReward(Episode e){
 
 		int n = e.numActions();
@@ -37,6 +43,12 @@ public class LabelAssignments {
 	}
 
 
+    /**
+     * Generates episodes for all possible reward assignments (in {-1, 1}) for steps in the original
+     * episode that have a reward value of 0.
+     * @param e the source episode from new episode reward assignments are generated
+     * @return a list of episodes
+     */
 	public static List<Episode> partialEnumerateEpisodeReward(Episode e){
 	    List<Integer> freeRewards = freeRewards(e);
         int n = freeRewards.size();

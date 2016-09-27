@@ -14,15 +14,18 @@ public class LabelProbDP {
     protected int range;
     protected double [] transitionProbs;
     protected double phi;
+    protected int numFeedbacks;
 
     protected boolean computedTable = false;
 
-    public LabelProbDP(double knownSum, double [] transitionProbs, double sigmoidPhi){
+    public LabelProbDP(double knownSum, double [] transitionProbs, double sigmoidPhi, int numFeedbacks){
         this.knownSum = knownSum;
         this.numUnknown = transitionProbs.length;
         range = numUnknown*2 + 1;
         this.transitionProbs = transitionProbs.clone();
         this.phi = sigmoidPhi;
+        this.numFeedbacks = numFeedbacks;
+
     }
 
     public double marginal(double l){
@@ -159,7 +162,9 @@ public class LabelProbDP {
     }
 
     protected double sigmoid(double net){
-        double denom = 1. + Math.exp(-phi * net);
+        double norm = ((net + numFeedbacks) / (double)(2 * numFeedbacks));
+        double scaled = norm - 0.5;
+        double denom = 1. + Math.exp(-phi * scaled);
         double val = 1. / denom;
         return val;
     }
@@ -183,7 +188,7 @@ public class LabelProbDP {
 
     public static void main(String[] args) {
 
-        LabelProbDP dp = new LabelProbDP(0, new double[]{0.5, 0.75}, 1.);
+        LabelProbDP dp = new LabelProbDP(0, new double[]{0.5, 0.75}, 7, 2);
         double marginal = dp.marginal(1.);
         double logMarginal = dp.logMarginal(1.);
         System.out.println(marginal);

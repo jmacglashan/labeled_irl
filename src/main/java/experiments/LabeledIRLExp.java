@@ -118,9 +118,9 @@ public class LabeledIRLExp {
 		//load our saved demonstrations from disk
 		List<Episode> episodes = Episode.readEpisodes(pathToEpisodes);
 
-		//assignRewards(episodes, 0.);
-		assignRewards(episodes.get(0), -1.);
-		assignRewards(episodes.get(1), -1);
+		assignRewards(episodes, 0.);
+		//assignRewards(episodes.get(0), -1.);
+		//assignRewards(episodes.get(1), -1);
 
 		System.out.println("first ep rewards " + episodes.get(0).discountedReturn(1.));
 		System.out.println("second ep rewards " + episodes.get(1).discountedReturn(1.));
@@ -160,7 +160,7 @@ public class LabeledIRLExp {
 			request = new LabeledIRLRequest(domain, dplanner, episodes, rf, Arrays.asList(-1., -1.));
 			request.setBoltzmannBeta(beta);
 
-			EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, 0.1, 20, 10);
+			EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, 0.05, 20, 10);
 			irl.learn();
 		}
 		else if(mode == 3){

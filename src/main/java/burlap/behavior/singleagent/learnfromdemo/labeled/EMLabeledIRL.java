@@ -35,7 +35,7 @@ public class EMLabeledIRL {
 
     protected int maxEMSteps;
 
-    protected double phi = 1.;
+    protected double phi = 7.;
 
     protected int numSampleScalar = 10;
 
@@ -145,7 +145,7 @@ public class EMLabeledIRL {
             double label = request.getEpisodeLabels().get(i);
 
             DPAlgInfo info = computeDPInfo(e, p);
-            LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi);
+            LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi, e.numActions());
             double labelProb = dp.marginal(label);
             double logLabel = Math.log(labelProb);
             sum += logLabel;
@@ -183,6 +183,24 @@ public class EMLabeledIRL {
 
     }
 
+    protected List<WeightedEpisode> generateMarginalizedEpisodes(Episode e, double l){
+
+        int numUnknown = this.numUnknown(e);
+        if(numUnknown == 0){
+            return Arrays.asList(new WeightedEpisode(e, 1.));
+        }
+
+        List<Episode> marginalEpisodes = LabelAssignments.partialEnumerateEpisodeReward(e);
+        Policy p = this.curPolicy();
+        List<WeightedEpisode> wsamples = new ArrayList<>(marginalEpisodes.size());
+        for(Episode s : marginalEpisodes){
+            double w = fullEMWeight(l, s, e, p);
+            wsamples.add(new WeightedEpisode(s, w));
+        }
+
+        return wsamples;
+    }
+
     protected int numSamples(int numUnknown){
         if(numUnknown == 0) return numSampleScalar;
         return (int) (numSampleScalar * (Math.log(numUnknown) / Math.log(2)) );
@@ -198,13 +216,13 @@ public class EMLabeledIRL {
         //compute weight numerator. For a given trajectory sample from importance distribution,
         //Pr(l | x_k, x_u)
         double netSample = sample.discountedReturn(1.);
-        double pSample = probL(l, netSample);
+        double pSample = probL(l, netSample, sample.numActions());
 
         //get DP parameter info
         DPAlgInfo info = computeDPInfo(srcEpisode, p);
 
         //do DP part: denominator of the weight: Pr(l | x_k)
-        LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi);
+        LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi, srcEpisode.numActions());
         double marginal = dp.marginal(l);
 
         //now we can compute the weight: Pr(l | x_k, x_u) / Pr(l | x_k)
@@ -212,6 +230,36 @@ public class EMLabeledIRL {
 
         return weight;
 
+    }
+
+    protected double fullEMWeight(double l, Episode sample, Episode srcEpisode, Policy p){
+
+        //compute \prod_i \Pr(x_{u,i} | s_i, a_a, \theta)
+        double prod = 1.;
+        for(int t = 1; t <= srcEpisode.maxTimeStep(); t++){
+            if(srcEpisode.reward(t) == 0.){
+                double sampleFeedback = sample.reward(t);
+                double pf = this.probFeedback(sample.state(t), sample.action(t), sampleFeedback, p);
+                prod *= pf;
+            }
+        }
+
+        double netSample = sample.discountedReturn(1.);
+        double probSampleLabel = this.probL(l, netSample, sample.numActions());
+        double numerator = probSampleLabel * prod;
+
+        //now compute Pr(l | x_k, s, a, \theta)
+        //get DP parameter info
+        DPAlgInfo info = computeDPInfo(srcEpisode, p);
+
+        //do DP part: denominator of the weight: Pr(l | x_k)
+        LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi, srcEpisode.numActions());
+        double marginal = dp.marginal(l);
+
+        //final value is ( Pr(l | x_k, x_u) \prod_i \Pr(x_{u,i} | s_i, a_a, \theta) )  / Pr(l | x_k)
+        double weight = numerator / marginal;
+
+        return weight;
     }
 
     protected DPAlgInfo computeDPInfo(Episode e, Policy p){
@@ -241,16 +289,18 @@ public class EMLabeledIRL {
 
     }
 
-    protected double probL(double l, double net){
-        double sig = sigmoid(net);
+    protected double probL(double l, double net, int numFeedbacks){
+        double sig = sigmoid(net, numFeedbacks);
         if(l == 1.){
             return sig;
         }
         return 1. - sig;
     }
 
-    protected double sigmoid(double net){
-        double denom = 1. + Math.exp(-phi * net);
+    protected double sigmoid(double net, int numFeedbacks){
+        double norm = ((net + numFeedbacks) / (double)(2 * numFeedbacks));
+        double scaled = norm - 0.5;
+        double denom = 1. + Math.exp(-phi * scaled);
         double val = 1. / denom;
         return val;
     }
