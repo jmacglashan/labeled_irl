@@ -118,6 +118,7 @@ public class LabeledIRLExp {
 		//load our saved demonstrations from disk
 		List<Episode> episodes = Episode.readEpisodes(pathToEpisodes);
 
+		//THIS IS CRITICAL BE AWARE
 		assignRewards(episodes, 0.);
 		//assignRewards(episodes.get(0), -1.);
 		//assignRewards(episodes.get(1), -1);
