@@ -43,6 +43,8 @@ public class EMLabeledIRL {
 
     protected int debugCode = 27373;
 
+    public boolean importanceSampling = true;
+
 
     public EMLabeledIRL(LabeledIRLRequest request, double learningRate, int gaSteps, int emSteps){
 
@@ -86,7 +88,7 @@ public class EMLabeledIRL {
         for(int i = 0; i < request.getExpertEpisodes().size(); i++){
             Episode e = request.getExpertEpisodes().get(i);
             double l = request.getEpisodeLabels().get(i);
-            List<WeightedEpisode> samples = generateImportanceSamples(e, l);
+            List<WeightedEpisode> samples = this.weightedAssignments(e, l);
             weightedSamples.add(samples);
         }
 
@@ -110,9 +112,12 @@ public class EMLabeledIRL {
                     sumInto(grad_t, sumGrad);
                 }
 
-                //normalize the set of samples gradient
                 FunctionGradient grad_samples = toGradient(sumGrad);
-                scalarMult(grad_samples, 1. / samples.size());
+
+                if(this.importanceSampling) {
+                    //normalize the set of samples gradient
+                    scalarMult(grad_samples, 1. / samples.size());
+                }
 
                 //move parameters in that direction
                 for(FunctionGradient.PartialDerivative pd : grad_samples.getNonZeroPartialDerivatives()){
@@ -162,6 +167,15 @@ public class EMLabeledIRL {
 
         return sum;
 
+    }
+
+    protected List<WeightedEpisode> weightedAssignments(Episode e, double l){
+        if(this.importanceSampling){
+            return generateImportanceSamples(e, l);
+        }
+        else{
+            return generateMarginalizedEpisodes(e, l);
+        }
     }
 
     protected List<WeightedEpisode> generateImportanceSamples(Episode e, double l){
@@ -243,7 +257,7 @@ public class EMLabeledIRL {
         for(int t = 1; t <= srcEpisode.maxTimeStep(); t++){
             if(srcEpisode.reward(t) == 0.){
                 double sampleFeedback = sample.reward(t);
-                double pf = this.probFeedback(sample.state(t), sample.action(t), sampleFeedback, p);
+                double pf = this.probFeedback(sample.state(t-1), sample.action(t-1), sampleFeedback, p);
                 prod *= pf;
             }
         }

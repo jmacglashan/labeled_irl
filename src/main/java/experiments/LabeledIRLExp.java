@@ -137,6 +137,15 @@ public class LabeledIRLExp {
 
 		MLIRLRequest request = null;
 
+        //assign final labels for the demonstrations for labeled IRL approaches.
+        List<Double> labels = Arrays.asList(1., 1.);
+
+        //labeled IRL parameters
+        double learningRate = 0.05;
+        int gaSteps = 20;
+        int emSteps = 10;
+        double logLikelihoodChange = 0.1;
+
 		if(mode == 0){
 			System.out.println("IRL!");
 			//define the IRL problem
@@ -144,24 +153,24 @@ public class LabeledIRLExp {
 			request.setBoltzmannBeta(beta);
 
 			//run MLIRL on it
-			MLIRL irl = new MLIRL(request, 0.1, 0.1, 10);
+			MLIRL irl = new MLIRL(request, learningRate, logLikelihoodChange, emSteps*gaSteps);
 			irl.performIRL();
 		}
 		else if(mode == 1){
 			System.out.println("Labeled IRL!");
-			request = new LabeledIRLRequest(domain, dplanner, episodes, rf, Arrays.asList(1., -1.));
+			request = new LabeledIRLRequest(domain, dplanner, episodes, rf, labels);
 			request.setBoltzmannBeta(beta);
 
-			LabeledIRL irl = new LabeledIRL((LabeledIRLRequest) request, 0.1, 0, 100);
+			LabeledIRL irl = new LabeledIRL((LabeledIRLRequest) request, learningRate, 0, gaSteps*emSteps);
 			irl.performIRL();
 
 		}
 		else if(mode == 2){
-			System.out.println("EM Labeled IRL!");
-			request = new LabeledIRLRequest(domain, dplanner, episodes, rf, Arrays.asList(-1., -1.));
+			System.out.println("EM Labeled IRL with importance sampling!");
+			request = new LabeledIRLRequest(domain, dplanner, episodes, rf, labels);
 			request.setBoltzmannBeta(beta);
 
-			EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, 0.05, 20, 10);
+			EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, learningRate, gaSteps, emSteps);
 			irl.learn();
 		}
 		else if(mode == 3){
@@ -170,10 +179,19 @@ public class LabeledIRLExp {
 			request.setBoltzmannBeta(beta);
 
 			//run MLIRL on it
-			SablLabel irl = new SablLabel(request, 0.1, 0.1, 10);
+			SablLabel irl = new SablLabel(request, learningRate, logLikelihoodChange, emSteps*gaSteps);
 			irl.performIRL();
 
 		}
+        else if(mode == 4){
+            System.out.println("EM Labeled IRL full marginalization!");
+            request = new LabeledIRLRequest(domain, dplanner, episodes, rf, labels);
+            request.setBoltzmannBeta(beta);
+
+            EMLabeledIRL irl = new EMLabeledIRL((LabeledIRLRequest) request, learningRate, gaSteps, emSteps);
+            irl.importanceSampling = false;
+            irl.learn();
+        }
 
 
 
@@ -336,7 +354,7 @@ public class LabeledIRLExp {
 
 		//ex.launchExplorer(); //choose this to record demonstrations
 		//ex.launchSavedEpisodeSequenceVis("irl_demos2"); //choose this review the demonstrations that you've recorded
-		ex.runIRL("irl_demos2", 2); //choose this to run MLIRL on the demonstrations and visualize the learned reward function and policy
+		ex.runIRL("irl_demos2", 4); //choose this to run MLIRL on the demonstrations and visualize the learned reward function and policy
 
 
 	}
