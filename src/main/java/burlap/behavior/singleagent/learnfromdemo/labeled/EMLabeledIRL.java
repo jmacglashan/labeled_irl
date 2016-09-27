@@ -125,6 +125,7 @@ public class EMLabeledIRL {
                 //reset valueFunction
                 this.request.getPlanner().resetSolver();
                 this.request.getPlanner().setModel(new CustomRewardModel(request.getDomain().getModel(), rf));
+                //WARNING: Call planFromState if you are going to use VI instead of sparse sampling
 
                 k++;
 
@@ -201,6 +202,9 @@ public class EMLabeledIRL {
         return wsamples;
     }
 
+    /**
+     * Given the number of unknown feedbacks, how many importance samples should I use?
+     */
     protected int numSamples(int numUnknown){
         if(numUnknown == 0) return numSampleScalar;
         return (int) (numSampleScalar * (Math.log(numUnknown) / Math.log(2)) );
@@ -223,7 +227,7 @@ public class EMLabeledIRL {
 
         //do DP part: denominator of the weight: Pr(l | x_k)
         LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi, srcEpisode.numActions());
-        double marginal = dp.marginal(l);
+        double marginal = dp.marginal(l); //equation 11
 
         //now we can compute the weight: Pr(l | x_k, x_u) / Pr(l | x_k)
         double weight = pSample / marginal;
