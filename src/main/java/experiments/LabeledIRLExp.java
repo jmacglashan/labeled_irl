@@ -102,7 +102,7 @@ public class LabeledIRLExp {
 	/**
 	 * Runs MLIRL on the trajectories stored in the "irlDemo" directory and then visualizes the learned reward function.
 	 */
-	public void runIRL(String pathToEpisodes, int mode){
+	public void runIRL(String pathToEpisodes, int mode, List<Double> labels){
 
 		//create reward function features to use
 		LocationFeatures features = new LocationFeatures(this.domain, 5);
@@ -125,7 +125,7 @@ public class LabeledIRLExp {
 		//assignRewards(episodes.get(1), -1);
 
 		System.out.println("first ep rewards " + episodes.get(0).discountedReturn(1.));
-		System.out.println("second ep rewards " + episodes.get(1).discountedReturn(1.));
+//		System.out.println("second ep rewards " + episodes.get(1).discountedReturn(1.));
 
 		//use either DifferentiableVI or DifferentiableSparseSampling for planning. The latter enables receding horizon IRL,
 		//but you will probably want to use a fairly large horizon for this kind of reward function.
@@ -139,11 +139,17 @@ public class LabeledIRLExp {
 		MLIRLRequest request = null;
 
         //assign final labels for the demonstrations for labeled IRL approaches.
-        List<Double> labels = Arrays.asList(1., -1.);
 
+//		List<Double> labels = Arrays.asList(1.);
+
+		//TODO: add regularization to this grad descent
+		//TODO: use better grad descent!
+		//TODO: check sampling distribution
         //labeled IRL parameters
-        double learningRate = 0.05;
-        int gaSteps = 20;
+//        double learningRate = 0.25;
+//        int gaSteps = 2000;
+		double learningRate = 0.05;
+        int gaSteps = 200;
         int emSteps = 1;
         double logLikelihoodChange = 0.1;
 
@@ -443,12 +449,18 @@ public class LabeledIRLExp {
 
 		LabeledIRLExp ex = new LabeledIRLExp();
 
+		String learnDir = "irl_demos2";//"irl_demos3"
 		//only have one of the below uncommented
 
-		//ex.launchExplorer(); //choose this to record demonstrations
-		//ex.launchSavedEpisodeSequenceVis("irl_demos2"); //choose this review the demonstrations that you've recorded
-		//ex.runIRL("irl_demos2", 2); //choose this to run MLIRL on the demonstrations and visualize the learned reward function and policy
-        ex.evaluateRewardParams("irl_demos2");
+//		ex.launchExplorer(); //choose this to record demonstrations
+//		ex.launchSavedEpisodeSequenceVis(learnDir); //choose this review the demonstrations that you've recorded
+//		ex.runIRL("irl_demos2", 4); //choose this to run MLIRL on the demonstrations and visualize the learned reward function and policy
+//        ex.evaluateRewardParams("irl_demos2");
+
+		//assign final labels for the demonstrations for labeled IRL approaches.
+		List<Double> labels = Arrays.asList(1., 1.);
+
+		ex.runIRL(learnDir, 2, labels);
 
 	}
 

@@ -128,6 +128,7 @@ public class LabelAssignments {
             if(e.rewardSequence.get(i) != 0){
                 continue;
             }
+            //TODO: check if correct!
             double roll = rand.nextDouble();
             double r = roll < p.actionProb(e.state(i), e.action(i)) ? 1. : -1.;
             e.rewardSequence.set(i, r);

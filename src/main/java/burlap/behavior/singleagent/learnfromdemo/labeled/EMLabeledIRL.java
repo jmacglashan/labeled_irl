@@ -37,7 +37,7 @@ public class EMLabeledIRL {
 
     protected double phi = 7.;
 
-    protected int numSampleScalar = 10;
+    protected int numSampleScalar = 50;
 
 
 
@@ -103,6 +103,58 @@ public class EMLabeledIRL {
             Episode e = request.getExpertEpisodes().get(i);
             double l = request.getEpisodeLabels().get(i);
             List<WeightedEpisode> samples = this.weightedAssignments(e, l);
+
+            /**
+             * inserting test code nakul
+             */
+            String str = "";
+
+            for(int j=0;j<e.actionSequence.size();j++){
+                str+=" "+e.actionSequence.get(j).actionName();
+            }
+            System.out.println(str);
+            System.out.println("episode label: " + request.getEpisodeLabels().get(i));
+
+            double[] avgLabel = new double[samples.get(0).e.rewardSequence.size()];
+            double[] avgWeight = new double[samples.size()];
+            double[] avgAbsWeight = new double[samples.size()];
+
+
+
+            for(int j=0;j<samples.size();j++){
+                WeightedEpisode we = samples.get(j);
+                avgWeight[j]+=we.w;
+                avgAbsWeight[j]+=Math.abs(we.w);
+                for(int k=0;k<we.e.rewardSequence.size();k++){
+                    if(we.e.rewardSequence.get(k)>0)
+                    avgLabel[k]+=1;
+                }
+            }
+
+            str = "";
+            String str1 = "";
+
+            for(int j=0;j<samples.size();j++){
+//                WeightedEpisode we = samples.get(j);
+                str+=", " + avgWeight[j];
+                str1+=", " + avgAbsWeight[j];
+
+            }
+
+
+
+            System.out.println(str);
+            System.out.println(str1);
+
+            str = "";
+
+            for(int k=0;k<avgLabel.length;k++){
+                    str+= "," + avgLabel[k];
+            }
+            System.out.println(str);
+
+
+            // end of nakul code
             weightedSamples.add(samples);
         }
 
@@ -233,11 +285,16 @@ public class EMLabeledIRL {
      */
     protected int numSamples(int numUnknown){
         if(numUnknown == 0) return numSampleScalar;
-        return (int) (numSampleScalar * (Math.log(numUnknown) / Math.log(2)) );
+        return (int) (numSampleScalar * (Math.log(numUnknown+1) / Math.log(2)) );
     }
 
     protected Policy curPolicy(){
         Policy policy = new BoltzmannQPolicy((QProvider)this.request.getPlanner(), 1./request.getBoltzmannBeta());
+        return policy;
+    }
+
+    protected Policy importanceSamplingPolicy(){
+        Policy policy = new BoltzmannQPolicy((QProvider)this.request.getPlanner(), 1./request.getBoltzmannBeta()*10);
         return policy;
     }
 
@@ -248,6 +305,21 @@ public class EMLabeledIRL {
         double netSample = sample.discountedReturn(1.);
         double pSample = probL(l, netSample, sample.numActions());
 
+
+        double ratio = 1.;
+
+        for(int t = 0; t < sample.maxTimeStep(); t++){
+            if(sample.reward(t+1) != 0.0) {
+                double pFeedback = this.probFeedback(sample.state(t), sample.action(t), sample.reward(t + 1), p);
+
+                double impFeedback = this.probFeedback(sample.state(t), sample.action(t), sample.reward(t + 1), this.importanceSamplingPolicy());
+
+//                double logP = Math.log(pFeedback);
+                ratio*=pFeedback/impFeedback;
+            }
+        }
+
+
         //get DP parameter info
         DPAlgInfo info = computeDPInfo(srcEpisode, p);
 
@@ -255,8 +327,10 @@ public class EMLabeledIRL {
         LabelProbDP dp = new LabelProbDP(info.knownNet, info.transitionProbs, this.phi, srcEpisode.numActions());
         double marginal = dp.marginal(l); //equation 11
 
+
         //now we can compute the weight: Pr(l | x_k, x_u) / Pr(l | x_k)
-        double weight = pSample / marginal;
+
+        double weight = pSample / marginal * ratio;
 
         return weight;
 
@@ -328,6 +402,7 @@ public class EMLabeledIRL {
     }
 
     protected double sigmoid(double net, int numFeedbacks){
+        // this is just weird this is just net/numFeedbacks to get a value between -1 and +1 as input to the sigmoid :)
         double norm = ((net + numFeedbacks) / (double)(2 * numFeedbacks));
         double scaled = norm - 0.5;
         double denom = 1. + Math.exp(-phi * scaled);
@@ -341,6 +416,7 @@ public class EMLabeledIRL {
         }
         return 1. - p.actionProb(s, a);
     }
+
 
     protected int numUnknown(Episode e){
         double num = 0;
